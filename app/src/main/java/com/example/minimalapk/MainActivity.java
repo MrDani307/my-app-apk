@@ -2,18 +2,20 @@ package com.example.minimalapk;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.widget.TextView;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
 
 public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        TextView textView = new TextView(this);
-        textView.setText("Hello! This APK was built via GitHub Actions!");
-        textView.setTextSize(24);
-        textView.setGravity(android.view.Gravity.CENTER);
+        WebView webView = new WebView(this);
+        WebSettings webSettings = webView.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+        webSettings.setDomStorageEnabled(true);
         
-        setContentView(textView);
+        webView.loadUrl("file:///android_asset/game.html");
+        setContentView(webView);
     }
 }
