@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; overflow: hidden; background: #111; font-family: sans-serif; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        #ui { position: absolute; top: 10px; left: 10px; color: white; font-size: 24px; z-index: 10; pointer-events: none; }
+        #restart { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; background: #ff3333; padding: 15px 30px; font-size: 20px; border: none; border-radius: 5px; display: none; z-index: 20; }
+    </style>
+</head>
+<body>
+    <div id="ui">Score: <span id="score">0</span></div>
+    <button id="restart" onclick="resetGame()">Game Over! Restart</button>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        let player = { x: 0, y: -100, z: 200, size: 15, targetX: 0 };
+        let obstacles = [];
+        let score = 0;
+        let isGameOver = false;
+        let speed = 4;
+
+        // Управление тапами
+        window.addEventListener('touchstart', (e) => {
+            if (isGameOver) return;
+            const touchX = e.touches[0].clientX;
+            if (touchX < window.innerWidth / 2) {
+                player.targetX = -60;
+            } else {
+                player.targetX = 60;
+            }
+        });
+
+        function spawnObstacle() {
+            if (Math.random() < 0.05 && obstacles.length < 10) {
+                obstacles.push({
+                    x: Math.random() * 160 - 80,
+                    y: -100,
+                    z: -400,
+                    size: Math.random() * 15 + 15
+                });
+            }
+        }
+
+        function project(x, y, z) {
+            const fov = 200;
+            const scale = fov / (fov + z);
+            return {
+                x: canvas.width / 2 + x * scale,
+                y: canvas.height / 2 + y * scale,
+                scale: scale
+            };
+        }
+
+        function update() {
+            if (isGameOver) return;
+
+            score++;
+            document.getElementById('score').innerText = Math.floor(score / 10);
+            if (score % 500 === 0) speed += 0.5;
+
+            player.x += (player.targetX - player.x) * 0.2;
+
+            spawnObstacle();
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.z += speed;
+
+                if (obs.z > 250) {
+                    obstacles.splice(i, 1);
+                    continue;
+                }
+
+                // Простая 3D коллизия
+                if (Math.abs(obs.z - player.z) < 20) {
+                    if (Math.abs(obs.x - player.x) < (obs.size + player.size)) {
+                        isGameOver = true;
+                        document.getElementById('restart').style.display = 'block';
+                    }
+                }
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Отрисовка 3D трассы (линии горизонта и обочины)
+            ctx.strokeStyle = '#4e4e91';
+            ctx.lineWidth = 2;
+            let p1 = project(-100, -50, -400);
+            let p2 = project(-100, -50, 250);
+            let p3 = project(100, -50, -400);
+            let p4 = project(100, -50, 250);
+
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+            ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y);
+            ctx.stroke();
+
+            // Сортировка объектов по глубине (Z-буфер) для корректного отображения
+            let renderList = [...obstacles, { ...player, isPlayer: true }].sort((a, b) => b.z - a.z);
+
+            renderList.forEach(obj => {
+                let pos = project(obj.x, obj.y, obj.z);
+                if (pos.scale <= 0) return;
+
+                let size = obj.size * pos.scale;
+
+                if (obj.isPlayer) {
+                    ctx.fillStyle = '#00f7ff';
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#00f7ff';
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y - size, size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                } else {
+                    ctx.fillStyle = '#ff007f';
+                    ctx.fillRect(pos.x - size / 2, pos.y - size, size, size);
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.strokeRect(pos.x - size / 2, pos.y - size, size, size);
+                }
+            });
+        }
+
+        function resetGame() {
+            player.x = 0;
+            player.targetX = 0;
+            obstacles = [];
+            score = 0;
+            speed = 4;
+            isGameOver = false;
+            document.getElementById('restart').style.display = 'none';
+            loop();
+        }
+
+        function loop() {
+            update();
+            draw();
+            if (!isGameOver) requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>
